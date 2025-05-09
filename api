@@ -1,0 +1,25 @@
+steps:
+  - name: Checkout code
+    uses: actions/checkout@v3
+
+  - name: Setup Google Cloud SDK
+    uses: google-github-actions/setup-gcloud@v0.2.1
+    with:
+      project_id: ${{ secrets.GCP_PROJECT_ID }}
+      service_account_key: ${{ secrets.GCP_SA_KEY }}
+      export_default_credentials: true
+
+  - name: Authorize Docker push
+    run: gcloud auth configure-docker
+
+  - name: Build and Push Container
+    run: |-
+      gcloud builds submit --gcs-log-dir $BUILD_LOGS_BUCKET --tag gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }}
+
+  - name: Deploy to Cloud Run
+    run: |-
+      gcloud run deploy $SERVICE_NAME \
+        --region $REGION \
+        --image gcr.io/$PROJECT_ID/$SERVICE_NAME:${{ github.sha }} \
+        --platform managed \
+        --allow-unauthenticated
